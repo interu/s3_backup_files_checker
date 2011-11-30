@@ -2,6 +2,8 @@ require 'rubygems'
 require 'fog'
 require 'pit'
 require 'yaml'
+require 'active_support/all'
+require 'colorize'
 
 class AwsConnect
   @@pit = Pit.get('s3', :require => { 'access_key' => '', 'secret_key' => ''})
@@ -32,15 +34,17 @@ class CheckBackupFiles
   def run
     yaml = load_yaml
     yaml["target_apps"].each do |app_name, config|
-      puts "Application : #{app_name}"
+      puts "Application : #{app_name}".on_yellow
       aws = AwsConnect.new(:region => config["region"])
       connection = aws.connect
       config["backups"].keys.each do |path|
         files = connection.directories.get(config["bucket"]).files.select{|file| file.key.include?(config["backups"]["#{path}"]) }
         file = select_latest_file files
 
+        created_at = Time.parse(file.last_modified.to_s)
+
         puts "\tFile    : #{file.key}"
-        puts "\tCreated : #{file.last_modified}"
+        puts "\tCreated : #{created_at.strftime('%Y/%m/%d %H:%M:%S')}".colorize(:color => risk_color(created_at))
         puts "\tCount   : #{files.count - 1}"
         puts ""
       end
@@ -53,6 +57,10 @@ class CheckBackupFiles
 
   def select_latest_file files
     files.sort{|x,y| y.last_modified <=> x.last_modified}.first
+  end
+
+  def risk_color created_at
+    created_at + 1.day > Time.now ? :green : :red
   end
 end
 
