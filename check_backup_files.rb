@@ -38,15 +38,17 @@ class CheckBackupFiles
       aws = AwsConnect.new(:region => config["region"])
       connection = aws.connect
       config["backups"].keys.each do |path|
-        files = connection.directories.get(config["bucket"]).files.select{|file| file.key.include?(config["backups"]["#{path}"]) }
-        file = select_latest_file files
+        files = connection.directories.get(config["bucket"]).files.select{ |file| file.key.include?(config["backups"]["#{path}"]) }
+        if file = select_latest_file(files)
 
-        created_at = Time.parse(file.last_modified.to_s)
+          created_at = Time.parse(file.last_modified.to_s)
 
-        puts "\tFile    : #{file.key}"
-        puts "\tCreated : #{created_at.strftime('%Y/%m/%d %H:%M:%S')}".colorize(:color => risk_color(created_at))
-        puts "\tCount   : #{files.count - 1}"
-        puts ""
+          puts "\tFile    : #{file.key}"
+          puts "\tCreated : #{created_at.strftime('%Y/%m/%d %H:%M:%S')}".colorize(:color => risk_color(created_at))
+          puts "\tCount   : #{files.count - 1}"
+        else
+          puts "\tFile Not Found".colorize(:red)
+        end
       end
     end
   end
